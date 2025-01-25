@@ -1,0 +1,64 @@
+import json
+import boto3
+
+# AWS Services setup
+dynamodb = boto3.resource('dynamodb')
+users_table = dynamodb.Table('Users')
+
+def lambda_handler(event, context):
+    try:
+        # Extract login details from the event
+        user_id = event['userId']  # Assuming 'userId' is the identifier being passed
+        password = event['password']
+
+        # Validate the input fields
+        if not user_id or not password:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"message": "Missing required fields: userId or password."})
+            }
+
+        # Retrieve the user from the DynamoDB table using userId
+        response = users_table.get_item(Key={"userId": user_id})  # Use 'userId' as the partition key
+        user = response.get('Item')
+
+        # Check if the user exists
+        if not user:
+            return {
+                "statusCode": 401,
+                "body": json.dumps({"message": "Invalid userId or password."})
+            }
+
+        # Directly compare the provided password with the stored password
+        stored_password = user['password']
+        if password != stored_password:
+            return {
+                "statusCode": 401,
+                "body": json.dumps({"message": "Invalid userId or password."})
+            }
+
+        # Successful authentication
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "message": "Authentication successful.",
+                "user": {
+                    "name": user['name'],
+                    "userId": user['userId'],
+                    "email": user['email'],
+                    "role": user['role']
+                }
+            })
+        }
+
+    except KeyError as e:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": f"Missing required field: {str(e)}"})
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"message": f"An error occurred: {str(e)}"})
+        }

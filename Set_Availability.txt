@@ -1,0 +1,82 @@
+import json
+import boto3
+from datetime import datetime
+
+# Initialize DynamoDB resource
+dynamodb = boto3.resource('dynamodb')
+appointments_table = dynamodb.Table('Appointments')
+users_table = dynamodb.Table('Users')
+
+def lambda_handler(event, context):
+    # Parse the incoming JSON body from the POST request
+    professor_id = event['professorId']
+    new_time_slots = event['timeSlots']
+
+    # Check if professor exists and is authorized
+    response = users_table.get_item(Key={'userId': professor_id})
+    professor = response.get('Item')
+
+    if not professor or professor['role'] != 'professor':
+        return {
+            "statusCode": 403,
+            "body": json.dumps({"message": "Not authorized"})
+        }
+
+    # Fetch current availability and bookings
+    response = appointments_table.get_item(Key={'professorId': professor_id})
+    current_data = response.get('Item', {})
+    current_availability = current_data.get('availability', [])
+    current_bookings = current_data.get('bookings', [])
+
+    # Validate and add new time slots
+    valid_time_slots = []
+    current_time = datetime.utcnow()  # Use UTC time for consistent comparison
+
+    for time_slot in new_time_slots:
+        try:
+            # Check if the time slot is a valid datetime string
+            slot_time = datetime.strptime(time_slot, '%Y-%m-%dT%H:%M')
+            
+            # Validate that the time slot is not in the past
+            if slot_time < current_time:
+                return {
+                    "statusCode": 400,
+                    "body": json.dumps({"message": f"Time slot {time_slot} is in the past and cannot be added."})
+                }
+            
+            if time_slot not in current_availability:
+                valid_time_slots.append(time_slot)
+        except ValueError:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"message": f"Invalid time format for {time_slot}"})
+            }
+
+    # If no valid time slots to add, return a message
+    if not valid_time_slots:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": "No valid time slots to add"})
+        }
+
+    # Add the valid time slots to the current availability
+    updated_availability = current_availability + valid_time_slots
+
+    # Remove past time slots from availability
+    updated_availability = [slot for slot in updated_availability if datetime.strptime(slot, '%Y-%m-%dT%H:%M') >= current_time]
+
+    # Update the professor's data in the Appointments table, preserving existing bookings
+    appointments_table.put_item(Item={
+        'professorId': professor_id,
+        'availability': updated_availability,
+        'bookings': current_bookings  # Retain existing bookings
+    })
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "message": "Availability successfully added and cleaned",
+            "updatedAvailability": updated_availability,
+            "currentBookings": current_bookings
+        })
+    }

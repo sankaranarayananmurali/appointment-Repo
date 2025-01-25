@@ -1,0 +1,48 @@
+import json
+import boto3
+
+# Initialize DynamoDB
+dynamodb = boto3.resource('dynamodb')
+appointments_table = dynamodb.Table('Appointments')
+
+def lambda_handler(event, context):
+    try:
+        # Extract professorId from the request
+        professor_id = event.get('professorId')
+
+        if not professor_id:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"message": "Missing required field: professorId"})
+            }
+
+        # Query the Appointments table for the professor
+        response = appointments_table.get_item(Key={'professorId': professor_id})
+        appointment = response.get('Item')
+
+        if not appointment:
+            return {
+                "statusCode": 404,
+                "body": json.dumps({"message": "No availability found for the specified professor."})
+            }
+
+        # Prepare the response
+        availability = appointment.get('availability', [])
+        bookings = [booking['timeSlot'] for booking in appointment.get('bookings', [])]
+
+        # Calculate free slots (availability not booked yet)
+        free_slots = [slot for slot in availability if slot not in bookings]
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "professorId": professor_id,
+                "availability": free_slots
+            })
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"message": f"An error occurred: {str(e)}"})
+        }

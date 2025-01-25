@@ -1,0 +1,61 @@
+import json
+import boto3
+import uuid
+
+# AWS Services setup
+dynamodb = boto3.resource('dynamodb')
+users_table = dynamodb.Table('Users')
+
+def lambda_handler(event, context):
+    try:
+        # Extract user details from the event
+        name = event['name']
+        email = event['email']
+        role = event['role']
+        password = event['password']
+
+        # Validate the role
+        if role not in ['student', 'professor']:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"message": "Invalid role. Must be 'student' or 'professor'."})
+            }
+
+        # Generate a unique user ID
+        user_id = str(uuid.uuid4())
+
+        # Save the user to the Users table
+        users_table.put_item(
+            Item={
+                'userId': user_id,
+                'name': name,
+                'email': email,
+                'role': role,
+                'password': password
+            }
+        )
+
+        return {
+            "statusCode": 201,
+            "body": json.dumps({
+                "message": "User created successfully.",
+                "user": {
+                    "userId": user_id,
+                    "name": name,
+                    "email": email,
+                    "role": role
+                }
+            })
+        }
+
+    except KeyError as e:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": f"Missing required field: {str(e)}"})
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"message": f"An error occurred: {str(e)}"})
+        }
