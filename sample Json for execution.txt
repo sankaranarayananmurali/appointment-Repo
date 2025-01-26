@@ -1,0 +1,48 @@
+Add User sample json:
+
+for professor
+{
+  "name": "Rajkumar",
+  "email": "raj@example.com",
+  "role": "professor",
+  "password": "rajkumar123"
+}
+
+for student
+{
+  "name": "Senthil",
+  "email": "senthil@example.com",
+  "role": "student",
+  "password": "senthil123"
+}
+
+Authenticating user:
+{
+  "userId": "fe8a0433-3580-4774-a8cb-8fb25ca67b84",
+  "password": "securePassword123"
+}
+
+Set-Availability
+{
+  "professorId": "273379af-9379-4812-977a-45f359033d99",
+  "timeSlots": [
+    "2025-01-26T17:00"
+  ]
+}
+
+get-Availability for specific professor
+
+{
+  "professorId": "273379af-9379-4812-977a-45f359033d99"
+}
+
+Get-all professor availability 
+
+we test without parameters
+
+Book Appointment
+{
+  "studentId": "ca7633fd-014e-4cbc-8361-249278f2930f",
+  "professorId": "273379af-9379-4812-977a-45f359033d99",
+  "timeSlot": "2025-01-27T11:00"
+}
